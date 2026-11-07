@@ -1,0 +1,33 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+
+# Build output
+bin/
+obj/
+Debug/
+Release/
+
+# User secrets
+secrets.json
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
