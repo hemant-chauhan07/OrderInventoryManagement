@@ -1,6 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Compile Remove="Validators\**" />
+    <EmbeddedResource Remove="Validators\**" />
+    <None Remove="Validators\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OrderInventory.Domain\OrderInventory.Domain.csproj" />
   </ItemGroup>
 
@@ -9,7 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Validators\" />
     <Folder Include="Services\" />
   </ItemGroup>
 

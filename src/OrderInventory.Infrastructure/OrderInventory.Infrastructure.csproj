@@ -1,6 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Compile Remove="BackgroundServices\**" />
+    <Compile Remove="Repositories\**" />
+    <EmbeddedResource Remove="BackgroundServices\**" />
+    <EmbeddedResource Remove="Repositories\**" />
+    <None Remove="BackgroundServices\**" />
+    <None Remove="Repositories\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OrderInventory.Domain\OrderInventory.Domain.csproj" />
     <ProjectReference Include="..\OrderInventory.Application\OrderInventory.Application.csproj" />
   </ItemGroup>
@@ -19,8 +28,6 @@
   <ItemGroup>
     <Folder Include="Configurations\" />
     <Folder Include="Authentication\" />
-    <Folder Include="BackgroundServices\" />
-    <Folder Include="Repositories\" />
     <Folder Include="Persistence\" />
   </ItemGroup>
 

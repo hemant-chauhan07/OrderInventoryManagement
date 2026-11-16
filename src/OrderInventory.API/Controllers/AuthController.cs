@@ -12,8 +12,7 @@ namespace OrderInventory.API.Controllers
     {
         private readonly IAuthenticationService _authenticationService;
 
-        public AuthController(
-            IAuthenticationService authenticationService)
+        public AuthController(IAuthenticationService authenticationService)
         {
             _authenticationService = authenticationService;
         }
@@ -23,14 +22,11 @@ namespace OrderInventory.API.Controllers
         [ProducesResponseType(typeof(RegisterResponseDto), 201)]
         [ProducesResponseType(400)]
         [ProducesResponseType(409)]
-        public async Task<IActionResult> Register(
-            [FromBody] RegisterRequestDto request)
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
             var result = await _authenticationService.RegisterAsync(request);
 
-            return Created(
-                $"/api/auth/users/{result.Id}",
-                result);
+            return Created($"/api/auth/users/{result.Id}", result);
         }
 
         [AllowAnonymous]
@@ -39,8 +35,7 @@ namespace OrderInventory.API.Controllers
         [ProducesResponseType(typeof(AuthResponseDto), 200)]
         [ProducesResponseType(401)]
         [ProducesResponseType(429)]
-        public async Task<IActionResult> Login(
-            [FromBody] LoginRequestDto request)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authenticationService.LoginAsync(request);
 
@@ -51,8 +46,7 @@ namespace OrderInventory.API.Controllers
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(AuthResponseDto), 200)]
         [ProducesResponseType(401)]
-        public async Task<IActionResult> Refresh(
-            [FromBody] RefreshTokenRequestDto request)
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request)
         {
             var result = await _authenticationService.RefreshAsync(request);
 

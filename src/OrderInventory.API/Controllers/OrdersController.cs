@@ -18,39 +18,25 @@ public class OrdersController : ControllerBase
         _orderService = orderService;
     }
 
-    private int CurrentUserId =>
-        int.Parse(User.FindFirstValue(
-            ClaimTypes.NameIdentifier)!);
+    private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    private bool IsAdmin =>
-        User.IsInRole("Admin");
+    private bool IsAdmin => User.IsInRole("Admin");
 
     [HttpPost]
     [Authorize(Roles = "Customer")]
     [ProducesResponseType(typeof(OrderResponseDto), 201)]
-    public async Task<IActionResult> CreateOrder(
-    [FromHeader(Name = "Idempotency-Key")] string idempotencyKey,
-    [FromBody] CreateOrderRequestDto request)
+    public async Task<IActionResult> CreateOrder([FromHeader(Name = "Idempotency-Key")] string idempotencyKey, [FromBody] CreateOrderRequestDto request)
     {
-        var result = await _orderService.CreateOrderAsync(
-            CurrentUserId,
-            idempotencyKey,
-            request);
+        var result = await _orderService.CreateOrderAsync(CurrentUserId, idempotencyKey, request);
 
-        return CreatedAtAction(
-            nameof(GetOrder),
-            new { id = result.Id },
-            result);
+        return CreatedAtAction(nameof(GetOrder), new { id = result.Id }, result);
     }
 
     [HttpGet("my")]
     [Authorize(Roles = "Customer")]
-    public async Task<IActionResult> GetMyOrders(
-        [FromQuery] OrderQueryDto query)
+    public async Task<IActionResult> GetMyOrders([FromQuery] OrderQueryDto query)
     {
-        var result = await _orderService.GetMyOrdersAsync(
-            CurrentUserId,
-            query);
+        var result = await _orderService.GetMyOrdersAsync(CurrentUserId, query);
 
         return Ok(result);
     }

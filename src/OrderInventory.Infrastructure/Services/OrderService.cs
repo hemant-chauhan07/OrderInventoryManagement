@@ -1,16 +1,17 @@
 
 using System.Data;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
+using OrderInventory.Domain.Enums;
 using Microsoft.Extensions.Logging;
-using OrderInventory.Application.DTOs.Orders;
-using OrderInventory.Application.DTOs.Products;
+using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
+using OrderInventory.Domain.Entities;
 using OrderInventory.Application.Exceptions;
 using OrderInventory.Application.Interfaces;
-using OrderInventory.Domain.Entities;
-using OrderInventory.Domain.Enums;
+using OrderInventory.Application.DTOs.Orders;
+using OrderInventory.Application.DTOs.Products;
+using OrderInventory.Application.BusinessRules;
 using OrderInventory.Infrastructure.Persistence;
 
 namespace OrderInventory.Infrastructure.Services;
@@ -21,54 +22,23 @@ public class OrderService : IOrderService
     private readonly IProductCacheInvalidator _cacheInvalidator;
     private readonly ILogger<OrderService> _logger;
 
-    public OrderService(
-        ApplicationDbContext context,
-        IProductCacheInvalidator cacheInvalidator,
-        ILogger<OrderService> logger)
+    public OrderService(ApplicationDbContext context, IProductCacheInvalidator cacheInvalidator, ILogger<OrderService> logger)
     {
         _context = context;
         _cacheInvalidator = cacheInvalidator;
         _logger = logger;
     }
 
-    public async Task<OrderResponseDto> CreateOrderAsync(
-        int customerId,
-        string idempotencyKey,
-        CreateOrderRequestDto request)
+    public async Task<OrderResponseDto> CreateOrderAsync(int customerId, string idempotencyKey, CreateOrderRequestDto request)
     {
-        if (string.IsNullOrWhiteSpace(idempotencyKey) ||
-            idempotencyKey.Length > 128)
+        if (string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > 128)
         {
-            throw new ApiException(400,
-                "A valid Idempotency-Key is required.");
+            throw new ApiException(400, "A valid Idempotency-Key is required.");
         }
 
-        if (request.Items == null || request.Items.Count == 0)
-        {
-            throw new ApiException(400,
-                "An order must contain at least one item.");
-        }
+        var items = OrderBusinessRules.NormalizeItems(request.Items);
 
-        if (request.Items.Any(x => x.ProductId <= 0 || x.Quantity <= 0))
-        {
-            throw new ApiException(400,
-                "Invalid product ID or quantity.");
-        }
-
-        var items = request.Items
-            .GroupBy(x => x.ProductId)
-            .Select(g => new
-            {
-                ProductId = g.Key,
-                Quantity = g.Sum(x => (long)x.Quantity)
-            })
-            .OrderBy(x => x.ProductId)
-            .ToList();
-
-        if (items.Any(x => x.Quantity > int.MaxValue))
-            throw new ApiException(400, "Quantity is too large.");
-
-        var hash = CalculateHash(items);
+        var hash = OrderBusinessRules.CalculateRequestHash(items);
 
         await using var transaction =
             await _context.Database.BeginTransactionAsync(
@@ -149,18 +119,7 @@ public class OrderService : IOrderService
             var previousOrderCount = await _context.Orders
                 .CountAsync(x => x.CustomerId == customerId);
 
-            decimal discountRate = 0;
-
-            if (subtotal > 10000)
-                discountRate += 0.05m;
-
-            if ((previousOrderCount + 1) % 5 == 0)
-                discountRate += 0.10m;
-
-            var discount = Math.Round(
-                subtotal * discountRate,
-                2,
-                MidpointRounding.AwayFromZero);
+            var discount = OrderBusinessRules.CalculateDiscount(subtotal, previousOrderCount);
 
             var total = subtotal - discount;
 
@@ -403,16 +362,13 @@ public class OrderService : IOrderService
             throw new ApiException(403, "Access denied.");
 
         if (!isAdmin && targetStatus != OrderStatus.Cancelled)
-            throw new ApiException(403,
-                "Customers can only cancel their own orders.");
+            throw new ApiException(403, "Customers can only cancel their own orders.");
 
         if (!isAdmin && order.Status != OrderStatus.Pending)
-            throw new ApiException(400,
-                "Customers may only cancel Pending orders.");
+            throw new ApiException(400, "Customers may only cancel Pending orders.");
 
-        if (!IsValidTransition(order.Status, targetStatus))
-            throw new ApiException(400,
-                $"Invalid transition: {order.Status} to {targetStatus}.");
+        if (!OrderBusinessRules.IsValidStatusTransition(order.Status, targetStatus))
+            throw new ApiException(400, $"Invalid transition: {order.Status} to {targetStatus}.");
 
         // Claim the transition atomically. This prevents an API cancellation
         // racing the expiration worker (or another admin) from restoring stock twice.
@@ -453,28 +409,6 @@ public class OrderService : IOrderService
             orderId, order.Status, targetStatus, userId);
 
         return await GetOrderByIdAsync(orderId, userId, isAdmin);
-    }
-
-    private static bool IsValidTransition(
-        OrderStatus current,
-        OrderStatus target)
-    {
-        return (current, target) switch
-        {
-            (OrderStatus.Pending, OrderStatus.Confirmed) => true,
-            (OrderStatus.Confirmed, OrderStatus.Shipped) => true,
-            (OrderStatus.Pending, OrderStatus.Cancelled) => true,
-            (OrderStatus.Confirmed, OrderStatus.Cancelled) => true,
-            _ => false
-        };
-    }
-
-    private static string CalculateHash(object request)
-    {
-        var json = JsonSerializer.Serialize(request);
-
-        return Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(json)));
     }
 
     private static void ValidatePagination(OrderQueryDto query)
